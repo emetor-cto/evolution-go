@@ -10,12 +10,16 @@
 # Variáveis obrigatórias no Coolify:
 #   GLOBAL_API_KEY
 #   POSTGRES_PASSWORD
-#   WEBHOOK_URL   (ex: https://crm-api.emetor.com.br/webhooks/whatsapp/evolution_go)
 #   PASSKEY_PUBLIC_URL (ex: https://evo-go.emetor.com.br) — URL pública deste serviço
+#
+# NÃO defina WEBHOOK_URL aqui. O CRM registra o webhook por instância no
+# /instance/connect. Se WEBHOOK_URL global + webhook da instância apontarem
+# para a mesma URL do CRM, as mensagens recebidas duplicam.
 #
 # No CRM:
 #   EVOLUTION_GO_API_URL     = https://seu-dominio-do-go
 #   EVOLUTION_GO_ADMIN_SECRET = mesmo valor de GLOBAL_API_KEY
+#   BACKEND_URL              = https://crm-api... (base do webhook evolution_go)
 
 services:
   evolution-go:
@@ -44,9 +48,6 @@ services:
 
       CONNECT_ON_STARTUP: ${CONNECT_ON_STARTUP:-true}
       WEBHOOK_FILES: "true"
-
-      # Webhook do CRM (também é registrado por instância pelo evo-crm)
-      WEBHOOK_URL: ${WEBHOOK_URL}
 
       # URL pública desta API (passkey / pareamento). Use o domínio do Coolify.
       PASSKEY_PUBLIC_URL: ${PASSKEY_PUBLIC_URL:-}
