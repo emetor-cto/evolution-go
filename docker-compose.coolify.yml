@@ -1,0 +1,118 @@
+# Evolution GO — Docker Compose para Coolify
+# Baseado em: docker/examples/docker-compose.yml
+#
+# Coolify:
+#   1. Novo recurso → Docker Compose
+#   2. Arquivo: docker-compose.coolify.yml
+#   3. Domínio no serviço "evolution-go" → porta 4000
+#   4. Preencha as variáveis em Environment Variables (veja abaixo)
+#
+# Variáveis obrigatórias no Coolify:
+#   GLOBAL_API_KEY
+#   POSTGRES_PASSWORD
+#   WEBHOOK_URL   (ex: https://crm-api.emetor.com.br/webhooks/whatsapp/evolution_go)
+#   PASSKEY_PUBLIC_URL (ex: https://evo-go.emetor.com.br) — URL pública deste serviço
+#
+# No CRM:
+#   EVOLUTION_GO_API_URL     = https://seu-dominio-do-go
+#   EVOLUTION_GO_ADMIN_SECRET = mesmo valor de GLOBAL_API_KEY
+
+services:
+  evolution-go:
+    image: evoapicloud/evolution-go:latest
+    restart: unless-stopped
+    expose:
+      - "4000"
+    environment:
+      SERVER_PORT: "4000"
+      CLIENT_NAME: ${CLIENT_NAME:-emetor}
+      OS_NAME: ${OS_NAME:-Linux}
+
+      GLOBAL_API_KEY: ${GLOBAL_API_KEY}
+
+      POSTGRES_AUTH_DB: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/evogo_auth?sslmode=disable
+      POSTGRES_USERS_DB: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/evogo_users?sslmode=disable
+      DATABASE_SAVE_MESSAGES: ${DATABASE_SAVE_MESSAGES:-true}
+
+      WADEBUG: ${WADEBUG:-INFO}
+      LOGTYPE: console
+      LOG_DIRECTORY: /app/logs
+      LOG_MAX_SIZE: "100"
+      LOG_MAX_BACKUPS: "5"
+      LOG_MAX_AGE: "30"
+      LOG_COMPRESS: "true"
+
+      CONNECT_ON_STARTUP: ${CONNECT_ON_STARTUP:-true}
+      WEBHOOK_FILES: "true"
+
+      # Webhook do CRM (também é registrado por instância pelo evo-crm)
+      WEBHOOK_URL: ${WEBHOOK_URL}
+
+      # URL pública desta API (passkey / pareamento). Use o domínio do Coolify.
+      PASSKEY_PUBLIC_URL: ${PASSKEY_PUBLIC_URL:-}
+
+      # License headless (opcional)
+      EVOLUTION_OPERATOR_EMAIL: ${EVOLUTION_OPERATOR_EMAIL:-}
+
+      AMQP_URL: ${AMQP_URL:-}
+      AMQP_GLOBAL_ENABLED: ${AMQP_GLOBAL_ENABLED:-false}
+      NATS_URL: ${NATS_URL:-}
+      NATS_GLOBAL_ENABLED: ${NATS_GLOBAL_ENABLED:-false}
+
+      MINIO_ENABLED: ${MINIO_ENABLED:-false}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-}
+      MINIO_BUCKET: ${MINIO_BUCKET:-}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      MINIO_REGION: ${MINIO_REGION:-}
+
+      PROXY_PROTOCOL: ${PROXY_PROTOCOL:-}
+      PROXY_HOST: ${PROXY_HOST:-}
+      PROXY_PORT: ${PROXY_PORT:-}
+      PROXY_USERNAME: ${PROXY_USERNAME:-}
+      PROXY_PASSWORD: ${PROXY_PASSWORD:-}
+
+      EVENT_IGNORE_GROUP: ${EVENT_IGNORE_GROUP:-false}
+      EVENT_IGNORE_STATUS: ${EVENT_IGNORE_STATUS:-true}
+      CHECK_USER_EXISTS: ${CHECK_USER_EXISTS:-true}
+      QRCODE_MAX_COUNT: ${QRCODE_MAX_COUNT:-5}
+    volumes:
+      - evolution_data:/app/dbdata
+      - evolution_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1:4000/ || exit 0",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+    # Sem ports públicos — só rede interna do Coolify
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/examples/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  evolution_data:
+  evolution_logs:
+  postgres_data:
