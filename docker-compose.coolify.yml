@@ -82,7 +82,9 @@ services:
       - evolution_logs:/app/logs
     depends_on:
       postgres:
-        condition: service_healthy
+        # service_started: evita falhar o deploy se o healthcheck do PG
+        # ainda estiver aquecendo (comum no Coolify). O Go reescolhe a DB.
+        condition: service_started
     healthcheck:
       test:
         [
@@ -92,25 +94,26 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 40s
+      start_period: 60s
 
   postgres:
     image: postgres:15-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Obrigatório — sem esta var o container do Postgres encerra na hora
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Coolify Environment Variables}
       POSTGRES_DB: postgres
     # Sem ports públicos — só rede interna do Coolify
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/examples/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 10s
+      retries: 12
+      start_period: 40s
 
 volumes:
   evolution_data:
